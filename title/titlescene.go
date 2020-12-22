@@ -1,7 +1,7 @@
 package title
 
 import (
-	"spiders/engine"
+	"github.com/jessdwitch/spiders/engine"
 
 	"github.com/hajimehoshi/ebiten/v2"
 )
@@ -19,5 +19,5 @@ func (s *TitleScene) Update(state *engine.GameState) error {
 }
 
 func (s *TitleScene) Draw(r *ebiten.Image) {
-	
+
 }

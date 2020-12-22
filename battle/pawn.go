@@ -1,8 +1,8 @@
 package battle
 
 import (
-	"spiders/engine"
-	"spiders/engine/render"
+	"github.com/jessdwitch/spiders/engine"
+	"github.com/jessdwitch/spiders/engine/render"
 
 	"github.com/hajimehoshi/ebiten/v2"
 )

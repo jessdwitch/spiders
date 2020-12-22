@@ -1,7 +1,7 @@
 package engine
 
 import (
-	"spiders/engine/render"
+	"github.com/jessdwitch/spiders/engine/render"
 
 	"fmt"
 )

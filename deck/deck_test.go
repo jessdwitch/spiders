@@ -3,8 +3,9 @@ package deck_test
 import (
 	"fmt"
 	"math/rand"
-	"spiders/deck"
 	"testing"
+
+	"github.com/jessdwitch/spiders/deck"
 
 	"github.com/stretchr/testify/assert"
 )

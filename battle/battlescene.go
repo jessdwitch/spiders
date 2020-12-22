@@ -3,9 +3,10 @@ package battle
 import (
 	"errors"
 	"fmt"
-	"spiders/deck"
-	"spiders/engine"
-	"spiders/engine/render"
+
+	"github.com/jessdwitch/spiders/deck"
+	"github.com/jessdwitch/spiders/engine"
+	"github.com/jessdwitch/spiders/engine/render"
 
 	"github.com/hajimehoshi/ebiten/v2"
 )

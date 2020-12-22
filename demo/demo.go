@@ -1,10 +1,10 @@
 package demo
 
 import (
-	"spiders/battle"
-	"spiders/deck"
-	"spiders/engine"
-	"spiders/title"
+	"github.com/jessdwitch/spiders/battle"
+	"github.com/jessdwitch/spiders/deck"
+	"github.com/jessdwitch/spiders/engine"
+	"github.com/jessdwitch/spiders/title"
 
 	"github.com/hajimehoshi/ebiten/v2"
 )

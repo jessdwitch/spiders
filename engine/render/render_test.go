@@ -1,8 +1,9 @@
 package render_test
 
 import (
-	"spiders/engine"
 	"testing"
+
+	"github.com/jessdwitch/spiders/engine"
 
 	"github.com/stretchr/testify/assert"
 )

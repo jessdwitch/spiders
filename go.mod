@@ -1,4 +1,4 @@
-module spiders
+module github.com/jessdwitch/spiders
 
 go 1.15
 
