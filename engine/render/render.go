@@ -70,12 +70,16 @@ type (
 	Animator interface {
 		Animate(AnimationMode) (int, error)
 	}
+	// Drawable : Able to hook into the game engine's animation loop
+	Drawable interface {
+		Draw(*ebiten.Image)
+		Update() error
+	}
 	// Sprite : An animatible, transformable entity
 	Sprite interface {
 		Animator
 		Transformer
-		Draw(*ebiten.Image)
-		Update() error
+		Drawable
 	}
 	// SpriteGetter : Give me a Sprite!
 	SpriteGetter interface {
@@ -93,8 +97,6 @@ type (
 		Scale(Point) error
 		// Translate : Move the transform to a new position
 		Translate(Point) error
-		// Lerp : Linear interpolation. Move to the given endpoint over the given number of ticks
-		Lerp(Point, int) error
 		// Skew : Like rotation, but not!
 		Skew() error // TODO:
 		// Rotate : Rotate the transform about the center
@@ -128,6 +130,15 @@ func (p *Point) Dist(p2 Point) float64 {
 func (p *Point) AddVec(mag float64, dir Point) Point {
 	scalar := mag / math.Sqrt(dir.X*dir.X+dir.Y*dir.Y)
 	return Point{(dir.X - p.X) * scalar, (dir.Y - p.Y) * scalar}
+}
+
+// Lerp : Linear interpolation. Returns an Update hook that moves p to the given endpoint over the
+// given number of ticks
+func (p *Point) Lerp(Point, int) (func() error) {
+	panic("not implemented") // TODO: Implement
+	return func () error {
+		return nil
+	}
 }
 
 func (s *sheetMeta) getAnimation(meta AnimMeta) (Animation, error) {
