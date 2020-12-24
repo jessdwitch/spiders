@@ -94,9 +94,9 @@ type (
 		// Translate : Move the transform to a new position
 		Translate(Point) error
 		// Skew : Like rotation, but not!
-		Skew() error // TODO:
+		// Skew() error // TODO:
 		// Rotate : Rotate the transform about the center
-		Rotate() error // TODO: Units? Degrees or radians?
+		// Rotate() error // TODO: Units? Degrees or radians?
 		// GetDims : Get the current post-scale dimensions
 		GetDims() Point
 		// GetPosition : Get the current top-left pixel of the transform
@@ -218,12 +218,12 @@ func (t *Tile) Rotate() error {
 
 // GetDims : Get the current post-scale dimensions
 func (t *Tile) GetDims() Point {
-	panic("not implemented") // TODO: Implement
+	return t.dims
 }
 
 // GetPosition : Get the current top-left pixel of the transform
 func (t *Tile) GetPosition() Point {
-	panic("not implemented") // TODO: Implement
+	return t.position
 }
 
 // GetSprite : Get a Sprite using the provided SpriteMetaGetter and AnimationGetter
