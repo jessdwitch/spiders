@@ -14,14 +14,16 @@ import (
 type (
 	// Animation : a sequence of frames for a sprite to draw
 	Animation struct {
+		Tile
+		// Frames : The sequence of images in this animation
 		Frames []*ebiten.Image
-		// which frame in the sequence are we on?
+		// CurrentFrame : which frame in the sequence are we on?
 		CurrentFrame int
-		// how much longer should we stay on this frame?
+		// FrameDelay : how much longer should we stay on this frame?
 		FrameDelay int
-		// how long should we stay on any given frame?
+		// FrameDelayMax : how long should we stay on any given frame?
 		FrameDelayMax int
-		// how big is this sprite?
+		// Dims : how big is this sprite?
 		Dims Point
 	}
 	// AnimationMode : An identifier for an animation registered to an Animatable.
@@ -32,6 +34,12 @@ type (
 		source  SourceImageID
 		start   int
 		nFrames int
+	}
+	// BasicSprite : A collection of ready-to-render animations
+	BasicSprite struct {
+		Animation
+		// registeredAnimations : animations available to this sprite
+		registeredAnimations map[AnimationMode]Animation
 	}
 	// Point : A rank-2 vector
 	Point struct {
@@ -70,8 +78,8 @@ type (
 	Animator interface {
 		Animate(AnimationMode) (int, error)
 	}
-	// Drawable : Able to hook into the game engine's animation loop
-	Drawable interface {
+	// Drawer : Able to hook into the game engine's animation loop
+	Drawer interface {
 		Draw(*ebiten.Image)
 		Update() error
 	}
@@ -79,7 +87,7 @@ type (
 	Sprite interface {
 		Animator
 		Transformer
-		Drawable
+		Drawer
 	}
 	// SpriteGetter : Give me a Sprite!
 	SpriteGetter interface {
@@ -90,6 +98,11 @@ type (
 	SpriteMetaGetter interface {
 		// GetSpriteMeta : Get Sprite metadata from an ID
 		GetSpriteMeta(SpriteID) (SpriteMeta, error)
+	}
+	// Tile : Static drawable
+	Tile struct {
+		image    *ebiten.Image
+		position Point
 	}
 	// Transformer : A handle for modifying scale, location, and rotation
 	Transformer interface {
@@ -121,6 +134,36 @@ func NewSpriteGetter(a AnimationGetter, s SpriteMetaGetter) (SpriteGetter, error
 	}, nil
 }
 
+// Update : Hook for the engine's tick function
+func (a *Animation) Update() error {
+	if len(a.Frames) == 1 {
+		a.image = a.Frames[0]
+		return nil
+	}
+	a.FrameDelay--
+	if a.FrameDelay < 0 {
+		a.FrameDelay = a.FrameDelayMax
+		a.CurrentFrame++
+		if a.CurrentFrame >= len(a.Frames) {
+			a.CurrentFrame = 0
+		}
+	}
+	a.image = a.Frames[a.CurrentFrame]
+	return nil
+}
+
+// Animate : Switch to a new Animation
+func (b *BasicSprite) Animate(mode AnimationMode) (int, error) {
+	anim, ok := b.registeredAnimations[mode]
+	if !ok {
+		return 0, fmt.Errorf("animation %v could not be found for sprite %v", mode, b)
+	}
+	anim.CurrentFrame = 0
+	anim.FrameDelay = anim.FrameDelayMax
+	b.Animation = anim
+	return len(anim.Frames) * anim.FrameDelay, nil
+}
+
 // Dist : The distance to the other Point.
 func (p *Point) Dist(p2 Point) float64 {
 	return math.Sqrt(math.Pow(p.Y-p2.Y, 2) + math.Pow(p.X-p2.X, 2))
@@ -134,11 +177,54 @@ func (p *Point) AddVec(mag float64, dir Point) Point {
 
 // Lerp : Linear interpolation. Returns an Update hook that moves p to the given endpoint over the
 // given number of ticks
-func (p *Point) Lerp(Point, int) (func() error) {
+func (p *Point) Lerp(Point, int) func() error {
 	panic("not implemented") // TODO: Implement
-	return func () error {
+	return func() error {
 		return nil
 	}
+}
+
+// Draw : Engine Draw hook
+func (t *Tile) Draw(screen *ebiten.Image) {
+	op := &ebiten.DrawImageOptions{}
+	// TODO: figure out rescaling
+	op.GeoM.Translate(t.position.X, t.position.Y)
+	screen.DrawImage(t.image, op)
+}
+
+// Update : Engine Update hook
+func (t *Tile) Update() error { return nil }
+
+// Scale : Rescale the transform to the given dimensions
+func (t *Tile) Scale(_ Point) error {
+	panic("not implemented") // TODO: Implement
+}
+
+// Translate : Move the transform to a new position
+func (t *Tile) Translate(_ Point) error {
+	panic("not implemented") // TODO: Implement
+}
+
+// Skew : Like rotation, but not!
+// TODO:
+func (t *Tile) Skew() error {
+	panic("not implemented") // TODO: Implement
+}
+
+// Rotate : Rotate the transform about the center
+// TODO: Units? Degrees or radians?
+func (t *Tile) Rotate() error {
+	panic("not implemented") // TODO: Implement
+}
+
+// GetDims : Get the current post-scale dimensions
+func (t *Tile) GetDims() Point {
+	panic("not implemented") // TODO: Implement
+}
+
+// GetPosition : Get the current top-left pixel of the transform
+func (t *Tile) GetPosition() Point {
+	panic("not implemented") // TODO: Implement
 }
 
 func (s *sheetMeta) getAnimation(meta AnimMeta) (Animation, error) {
@@ -195,9 +281,11 @@ func (s *spriteManager) GetSprite(id SpriteID) (Sprite, error) {
 		return nil, err
 	}
 	result := &BasicSprite{
-		position:             Point{0, 0},
-		dims:                 Point{0, 0},
-		currentMode:          NoAnimation,
+		Animation: Animation{
+			Tile: Tile{
+				position: Point{0, 0},
+			},
+		},
 		registeredAnimations: anims,
 	}
 	return result, nil
