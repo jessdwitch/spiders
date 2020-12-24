@@ -12,7 +12,8 @@ import (
 // TODO: Make a sprite sheet powered implementation of AnimationGetter
 
 type (
-	// Animation : a sequence of frames for a sprite to draw
+	// Animation : a sequence of frames for a sprite to draw. Resist direct member updates; they're
+	// exported for serializer.
 	Animation struct {
 		Tile
 		// Frames : The sequence of images in this animation
@@ -56,8 +57,8 @@ type (
 	}
 	// animationCycle : How should this animation cycle?
 	animationCycle int
-	// spriteManager : A simple pipe from SpriteMetaGetter to AnimationGetter to assmeble a Sprite
-	spriteManager struct {
+	// SpriteManager : A simple pipe from SpriteMetaGetter to AnimationGetter to assmeble a Sprite
+	SpriteManager struct {
 		animationGetter  AnimationGetter
 		spriteMetaGetter SpriteMetaGetter
 		// spriteAnimations map[SpriteID][]AnimMeta
@@ -124,9 +125,9 @@ type (
 // NoAnimation : A placeholder AnimationMode for when no animation is occurring
 const NoAnimation AnimationMode = "no_animation"
 
-// NewSpriteGetter : Get an implementation for SpriteGetter and forget about the details
-func NewSpriteGetter(a AnimationGetter, s SpriteMetaGetter) (SpriteGetter, error) {
-	return &spriteManager{
+// NewSpriteManager : Create a new pipeline from SpriteID to Sprite
+func NewSpriteManager(a AnimationGetter, s SpriteMetaGetter) (*SpriteManager, error) {
+	return &SpriteManager{
 		animationGetter:  a,
 		spriteMetaGetter: s,
 		// spriteAnimations: make(map[SpriteID][]AnimMeta),
@@ -246,7 +247,7 @@ func (s *sheetMeta) getAnimation(meta AnimMeta) (Animation, error) {
 	return result, nil
 }
 
-func (s *spriteManager) GetSpriteAnimations(metas []AnimMeta) (map[AnimationMode]Animation, error) {
+func (s *SpriteManager) GetSpriteAnimations(metas []AnimMeta) (map[AnimationMode]Animation, error) {
 	batches := map[SourceImageID][]AnimMeta{}
 	for _, meta := range metas {
 		if batch, ok := batches[meta.source]; ok {
@@ -271,7 +272,7 @@ func (s *spriteManager) GetSpriteAnimations(metas []AnimMeta) (map[AnimationMode
 }
 
 // GetSprite : Get a Sprite using the provided SpriteMetaGetter and AnimationGetter
-func (s *spriteManager) GetSprite(id SpriteID) (Sprite, error) {
+func (s *SpriteManager) GetSprite(id SpriteID) (*BasicSprite, error) {
 	meta, err := s.spriteMetaGetter.GetSpriteMeta(id)
 	if err != nil {
 		return nil, err
