@@ -6,6 +6,8 @@ import (
 	"github.com/jessdwitch/spiders/demo"
 
 	"github.com/hajimehoshi/ebiten/v2"
+
+	_ "image/png"
 )
 
 const (

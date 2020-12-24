@@ -6,6 +6,8 @@ import (
 	"github.com/jessdwitch/spiders/engine"
 
 	"github.com/stretchr/testify/assert"
+
+	_ "image/png"
 )
 
 func makeSpriteManager() (*engine.SpriteGetter, engine.SpriteID, engine.BasicSprite) {

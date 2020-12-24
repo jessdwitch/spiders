@@ -1,12 +1,11 @@
 package render
 
 import (
+	"encoding/csv"
 	"fmt"
-	"image"
 	"math"
 
 	"github.com/hajimehoshi/ebiten/v2"
-	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
 )
 
 // TODO: Make a sprite sheet powered implementation of AnimationGetter
@@ -24,8 +23,6 @@ type (
 		FrameDelay int
 		// FrameDelayMax : how long should we stay on any given frame?
 		FrameDelayMax int
-		// Dims : how big is this sprite?
-		Dims Point
 	}
 	// AnimationMode : An identifier for an animation registered to an Animatable.
 	AnimationMode string
@@ -47,33 +44,14 @@ type (
 		X float64
 		Y float64
 	}
-	// SourceImageID : An identifier for a registered source image provider
-	SourceImageID int
 	// SpriteID : An identifier for a registered sprite
-	SpriteID int
-	// SpriteMeta :
-	SpriteMeta struct {
-		InitialDims Point
-	}
+	SpriteID string
 	// animationCycle : How should this animation cycle?
 	animationCycle int
-	// SpriteManager : A simple pipe from SpriteMetaGetter to AnimationGetter to assmeble a Sprite
-	SpriteManager struct {
+	// SpriteFactory : A simple pipe from SpriteMetaGetter to AnimationGetter to assmeble a Sprite
+	SpriteFactory struct {
 		animationGetter  AnimationGetter
 		spriteMetaGetter SpriteMetaGetter
-		// spriteAnimations map[SpriteID][]AnimMeta
-		// spriteSheets     map[SourceImageID]sheetMeta
-	}
-	sheetMeta struct {
-		fp       string
-		sheetDim image.Point
-		tileDim  image.Point
-		nXTiles  int
-		nYTiles  int
-	}
-	// AnimationGetter : Assemble an animation from it's metadata
-	AnimationGetter interface {
-		GetAnimations([]AnimMeta) (map[AnimationMode]Animation, error)
 	}
 	// Animator : Triggers a registered animation. Returns the number of frames in a loop
 	Animator interface {
@@ -102,8 +80,12 @@ type (
 	}
 	// Tile : Static drawable
 	Tile struct {
-		image    *ebiten.Image
+		// image : the thing to render
+		image *ebiten.Image
+		// position : the top-left of where this should render
 		position Point
+		// dims : how big should this render?
+		dims Point
 	}
 	// Transformer : A handle for modifying scale, location, and rotation
 	Transformer interface {
@@ -125,14 +107,30 @@ type (
 // NoAnimation : A placeholder AnimationMode for when no animation is occurring
 const NoAnimation AnimationMode = "no_animation"
 
-// NewSpriteManager : Create a new pipeline from SpriteID to Sprite
-func NewSpriteManager(a AnimationGetter, s SpriteMetaGetter) (*SpriteManager, error) {
-	return &SpriteManager{
+// NewSpriteFactory : Create a new pipeline from SpriteID to Sprite
+func NewSpriteFactory(a AnimationGetter, s SpriteMetaGetter) (*SpriteFactory, error) {
+	return &SpriteFactory{
 		animationGetter:  a,
 		spriteMetaGetter: s,
-		// spriteAnimations: make(map[SpriteID][]AnimMeta),
-		// spriteSheets:     make(map[SourceImageID]sheetMeta),
 	}, nil
+}
+
+// NewSpriteFactoryFromManifests : Create a new Sprite generator with simple args
+func NewSpriteFactoryFromManifests(sheetManifest, spriteManifest csv.Reader) (*SpriteFactory, error) {
+	sheetManager, err := NewSpriteSheetManager(sheetManifest)
+	if err != nil {
+		return nil, err
+	}
+	spriteMetaManager, err := NewSpriteMetaManager(spriteManifest)
+	if err != nil {
+		return nil, err
+	}
+	return NewSpriteFactory(sheetManager, spriteMetaManager)
+}
+
+// NewTile : Make a new fixed image renderable
+func NewTile(i *ebiten.Image) Tile {
+	return Tile{image: i}
 }
 
 // Update : Hook for the engine's tick function
@@ -228,56 +226,13 @@ func (t *Tile) GetPosition() Point {
 	panic("not implemented") // TODO: Implement
 }
 
-func (s *sheetMeta) getAnimation(meta AnimMeta) (Animation, error) {
-	sheetImg, _, err := ebitenutil.NewImageFromFile(s.fp)
-	if err != nil {
-		return Animation{}, err
-	}
-	result := Animation{
-		Frames: []*ebiten.Image{},
-	}
-	for i := 0; i < meta.nFrames; i++ {
-		r, err := s.iToRect(meta.start + i)
-		if err != nil {
-			return Animation{}, err
-		}
-		frame := sheetImg.SubImage(r).(*ebiten.Image)
-		result.Frames = append(result.Frames, frame)
-	}
-	return result, nil
-}
-
-func (s *SpriteManager) GetSpriteAnimations(metas []AnimMeta) (map[AnimationMode]Animation, error) {
-	batches := map[SourceImageID][]AnimMeta{}
-	for _, meta := range metas {
-		if batch, ok := batches[meta.source]; ok {
-			batch = append(batch, meta)
-		} else {
-			batches[meta.source] = []AnimMeta{meta}
-		}
-	}
-	result := map[AnimationMode]Animation{}
-	for sheetID, metas := range batches {
-		// RFE: Is it worthwhile to use sync map writing to parallelize this?
-		sheet := s.spriteSheets[sheetID]
-		for _, meta := range metas {
-			anim, err := sheet.getAnimation(meta)
-			if err != nil {
-				return nil, err
-			}
-			result[meta.mode] = anim
-		}
-	}
-	return result, nil
-}
-
 // GetSprite : Get a Sprite using the provided SpriteMetaGetter and AnimationGetter
-func (s *SpriteManager) GetSprite(id SpriteID) (*BasicSprite, error) {
+func (s *SpriteFactory) GetSprite(id SpriteID) (*BasicSprite, error) {
 	meta, err := s.spriteMetaGetter.GetSpriteMeta(id)
 	if err != nil {
 		return nil, err
 	}
-	anims, err := s.animationGetter.GetAnimations(meta.AnimMetas)
+	anims, err := s.animationGetter.GetAnimations(meta.Anims)
 	if err != nil {
 		return nil, err
 	}
@@ -290,16 +245,4 @@ func (s *SpriteManager) GetSprite(id SpriteID) (*BasicSprite, error) {
 		registeredAnimations: anims,
 	}
 	return result, nil
-}
-
-func (s *sheetMeta) iToRect(i int) (image.Rectangle, error) {
-	if i < 0 {
-		return image.Rectangle{}, fmt.Errorf("requested index %d is negative for sheet %s", i, s.fp)
-	}
-	if i >= s.nXTiles*s.nYTiles {
-		return image.Rectangle{}, fmt.Errorf("tile index %d must be less than %d for sheet %s", i, s.nXTiles*s.nYTiles, s.fp)
-	}
-	x := (i % s.nXTiles) * s.tileDim.X
-	y := (i / s.nXTiles) * s.tileDim.Y
-	return image.Rect(x, y, x+s.tileDim.X, y+s.tileDim.Y), nil
 }
