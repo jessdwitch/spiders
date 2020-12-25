@@ -18,7 +18,7 @@ type (
 )
 
 // NewSpriteMetaManager :
-func NewSpriteMetaManager(manifest csv.Reader) (SpriteMetaManager, error) {
+func NewSpriteMetaManager(manifest *csv.Reader) (SpriteMetaManager, error) {
 	result := SpriteMetaManager(make(map[SpriteID]SpriteMeta))
 	// strip header
 	_, err := manifest.Read()
@@ -67,10 +67,10 @@ func (s SpriteMetaManager) processManifestCsvRecord(record []string) error {
 	}
 	nFrames, err := strconv.Atoi(record[4])
 	anim := AnimMeta{
-		mode:    AnimationMode(record[2]),
-		source:  SourceImageID(record[1]),
-		start:   start,
-		nFrames: nFrames,
+		Mode:    AnimationMode(record[2]),
+		Source:  SourceImageID(record[1]),
+		Start:   start,
+		NFrames: nFrames,
 	}
 	meta.Anims = append(meta.Anims, anim)
 	s[SpriteID(record[0])] = meta

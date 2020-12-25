@@ -9,7 +9,6 @@ import (
 	"strconv"
 
 	"github.com/hajimehoshi/ebiten/v2"
-	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
 )
 
 type (
@@ -17,11 +16,23 @@ type (
 	AnimationGetter interface {
 		GetAnimations([]AnimMeta) (map[AnimationMode]Animation, error)
 	}
+	// SpriteSheetGetter : Get a sprite source image
+	SpriteSheetGetter interface {
+		GetSpriteSheet(SourceImageID) (*SpriteSheet, error)
+	}
 	// SourceImageID : An identifier for a registered source image provider
 	SourceImageID string
-	// SpriteSheetManager : A provider of sprite sheets
-	SpriteSheetManager map[SourceImageID]sheetMeta
-	sheetMeta          struct {
+	// SpriteSheet : An image with sprite extraction details
+	SpriteSheet struct {
+		SourceImage ebiten.Image
+		SheetID     SourceImageID
+		SheetDim    image.Point
+		TileDim     image.Point
+		NTiles      image.Point
+	}
+	// SpriteSheetFiles : A provider of sprite sheets from file sources
+	SpriteSheetFiles map[SourceImageID]sheetFileMeta
+	sheetFileMeta    struct {
 		fp       string
 		sheetDim image.Point
 		tileDim  image.Point
@@ -29,9 +40,9 @@ type (
 	}
 )
 
-// NewSpriteSheetManager : Get a new AnimationGetter from a sprite sheet manifest
-func NewSpriteSheetManager(manifest csv.Reader) (SpriteSheetManager, error) {
-	result := SpriteSheetManager(make(map[SourceImageID]sheetMeta))
+// NewSpriteSheetFiles : Get a new AnimationGetter from a sprite sheet manifest
+func NewSpriteSheetFiles(manifest *csv.Reader) (SpriteSheetFiles, error) {
+	result := SpriteSheetFiles(make(map[SourceImageID]sheetFileMeta))
 	// strip header
 	_, err := manifest.Read()
 	if err == io.EOF {
@@ -56,48 +67,23 @@ func NewSpriteSheetManager(manifest csv.Reader) (SpriteSheetManager, error) {
 	return result, nil
 }
 
-// GetAnimations : Retrieve animations from sprite sheets
-func (s SpriteSheetManager) GetAnimations(metas []AnimMeta) (map[AnimationMode]Animation, error) {
-	batches := map[SourceImageID][]AnimMeta{}
-	for _, meta := range metas {
-		if batch, ok := batches[meta.source]; ok {
-			batch = append(batch, meta)
-		} else {
-			batches[meta.source] = []AnimMeta{meta}
-		}
-	}
-	result := map[AnimationMode]Animation{}
-	for sheetID, metas := range batches {
-		// RFE: Is it worthwhile to use sync map writing to parallelize this?
-		sheet := s[sheetID]
-		for _, meta := range metas {
-			anim, err := sheet.getAnimation(meta)
-			if err != nil {
-				return nil, err
-			}
-			result[meta.mode] = anim
-		}
-	}
-	return result, nil
-}
-
-func (s SpriteSheetManager) processManifestCsvRecord(record []string) error {
-	// record: name, path, tileX, tileY
+func (s SpriteSheetFiles) processManifestCsvRecord(record []string) error {
+	// record: name, path, tileX, tileY, sheetX, sheetY
 	var err error
-	meta := sheetMeta{
+	meta := sheetFileMeta{
 		fp:      record[1],
 		tileDim: image.Point{},
 	}
-	meta.tileDim.X, err = strconv.Atoi(record[3])
+	meta.tileDim.X, err = strconv.Atoi(record[2])
 	if err != nil {
 		return err
 	}
-	meta.tileDim.Y, err = strconv.Atoi(record[4])
+	meta.tileDim.Y, err = strconv.Atoi(record[3])
 	if err != nil {
 		return err
 	}
 
-	meta.sheetDim.X, err = strconv.Atoi(record[5])
+	meta.sheetDim.X, err = strconv.Atoi(record[4])
 	if err != nil || meta.sheetDim.X == 0 {
 		f, err := os.Open(meta.fp)
 		if err != nil {
@@ -112,7 +98,7 @@ func (s SpriteSheetManager) processManifestCsvRecord(record []string) error {
 		meta.sheetDim.X = i.Bounds().Max.X
 		meta.sheetDim.Y = i.Bounds().Max.Y
 	} else {
-		meta.sheetDim.Y, err = strconv.Atoi(record[6])
+		meta.sheetDim.Y, err = strconv.Atoi(record[5])
 		if err != nil {
 			return err
 		}
@@ -126,34 +112,55 @@ func (s SpriteSheetManager) processManifestCsvRecord(record []string) error {
 	return nil
 }
 
-func (s *sheetMeta) getAnimation(meta AnimMeta) (Animation, error) {
-	sheetImg, _, err := ebitenutil.NewImageFromFile(s.fp)
-	if err != nil {
-		return Animation{}, err
+// GetSpriteSheet : Get a registered SpriteSheet
+func (s SpriteSheetFiles) GetSpriteSheet(id SourceImageID) (*SpriteSheet, error) {
+	if meta, ok := s[id]; ok {
+		return meta.GetSpriteSheet(id)
 	}
+	return nil, fmt.Errorf("sheet %s not found", id)
+}
+
+// ExtractAnimation : Extract a series of frames from this Sprite Sheet
+func (s *SpriteSheet) ExtractAnimation(meta AnimMeta) (Animation, error) {
 	result := Animation{
 		Frames: []*ebiten.Image{},
 	}
-	for i := 0; i < meta.nFrames; i++ {
-		r, err := s.iToRect(meta.start + i)
+	for i := 0; i < meta.NFrames; i++ {
+		r, err := s.iToRect(meta.Start + i)
 		if err != nil {
 			return Animation{}, err
 		}
-		frame := sheetImg.SubImage(r).(*ebiten.Image)
+		frame := s.SourceImage.SubImage(r).(*ebiten.Image)
 		result.Frames = append(result.Frames, frame)
 	}
 	return result, nil
 }
 
-func (s *sheetMeta) iToRect(i int) (image.Rectangle, error) {
+func (s *SpriteSheet) iToRect(i int) (image.Rectangle, error) {
 	if i < 0 {
-		return image.Rectangle{}, fmt.Errorf("requested index %d is negative for sheet %s", i, s.fp)
+		return image.Rectangle{}, fmt.Errorf("requested index %d is negative for sheet %s", i, s.SheetID)
 	}
-	if i >= s.nTiles.X*s.nTiles.Y {
+	if i >= s.NTiles.X*s.NTiles.Y {
 		return image.Rectangle{},
-			fmt.Errorf("tile index %d must be less than %d for sheet %s", i, s.nTiles.X*s.nTiles.Y, s.fp)
+			fmt.Errorf("tile index %d must be less than %d for sheet %s", i, s.NTiles.X*s.NTiles.Y, s.SheetID)
 	}
-	x := (i % s.nTiles.X) * s.tileDim.X
-	y := (i / s.nTiles.Y) * s.tileDim.Y
-	return image.Rect(x, y, x+s.tileDim.X, y+s.tileDim.Y), nil
+	x := (i % s.NTiles.X) * s.TileDim.X
+	y := (i / s.NTiles.Y) * s.TileDim.Y
+	return image.Rect(x, y, x+s.TileDim.X, y+s.TileDim.Y), nil
+}
+
+func (s *sheetFileMeta) GetSpriteSheet(id SourceImageID) (*SpriteSheet, error) {
+	f, err := os.Open(s.fp)
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+	img, _, err := image.Decode(f)
+	return &SpriteSheet{
+		SourceImage: *ebiten.NewImageFromImage(img),
+		SheetID:     id,
+		SheetDim:    s.sheetDim,
+		TileDim:     s.tileDim,
+		NTiles:      s.nTiles,
+	}, nil
 }

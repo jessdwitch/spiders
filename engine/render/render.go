@@ -28,10 +28,10 @@ type (
 	AnimationMode string
 	// AnimMeta : Animation metadata for retrieval
 	AnimMeta struct {
-		mode    AnimationMode
-		source  SourceImageID
-		start   int
-		nFrames int
+		Mode    AnimationMode
+		Source  SourceImageID
+		Start   int
+		NFrames int
 	}
 	// BasicSprite : A collection of ready-to-render animations
 	BasicSprite struct {
@@ -46,11 +46,9 @@ type (
 	}
 	// SpriteID : An identifier for a registered sprite
 	SpriteID string
-	// animationCycle : How should this animation cycle?
-	animationCycle int
 	// SpriteFactory : A simple pipe from SpriteMetaGetter to AnimationGetter to assmeble a Sprite
 	SpriteFactory struct {
-		animationGetter  AnimationGetter
+		sourceImageGetter  SpriteSheetGetter
 		spriteMetaGetter SpriteMetaGetter
 	}
 	// Animator : Triggers a registered animation. Returns the number of frames in a loop
@@ -108,16 +106,16 @@ type (
 const NoAnimation AnimationMode = "no_animation"
 
 // NewSpriteFactory : Create a new pipeline from SpriteID to Sprite
-func NewSpriteFactory(a AnimationGetter, s SpriteMetaGetter) (*SpriteFactory, error) {
+func NewSpriteFactory(a SpriteSheetGetter, s SpriteMetaGetter) (*SpriteFactory, error) {
 	return &SpriteFactory{
-		animationGetter:  a,
+		sourceImageGetter:  a,
 		spriteMetaGetter: s,
 	}, nil
 }
 
 // NewSpriteFactoryFromManifests : Create a new Sprite generator with simple args
-func NewSpriteFactoryFromManifests(sheetManifest, spriteManifest csv.Reader) (*SpriteFactory, error) {
-	sheetManager, err := NewSpriteSheetManager(sheetManifest)
+func NewSpriteFactoryFromManifests(sheetManifest, spriteManifest *csv.Reader) (*SpriteFactory, error) {
+	sheetManager, err := NewSpriteSheetFiles(sheetManifest)
 	if err != nil {
 		return nil, err
 	}
@@ -232,7 +230,7 @@ func (s *SpriteFactory) GetSprite(id SpriteID) (*BasicSprite, error) {
 	if err != nil {
 		return nil, err
 	}
-	anims, err := s.animationGetter.GetAnimations(meta.Anims)
+	anims, err := s.GetAnimations(s.sourceImageGetter, meta.Anims)
 	if err != nil {
 		return nil, err
 	}
@@ -243,6 +241,34 @@ func (s *SpriteFactory) GetSprite(id SpriteID) (*BasicSprite, error) {
 			},
 		},
 		registeredAnimations: anims,
+	}
+	return result, nil
+}
+
+// GetAnimations : Retrieve animations from sprite sheets
+func (s *SpriteFactory) GetAnimations(source SpriteSheetGetter, metas []AnimMeta) (map[AnimationMode]Animation, error) {
+	batches := map[SourceImageID][]AnimMeta{}
+	for _, meta := range metas {
+		if batch, ok := batches[meta.Source]; ok {
+			batch = append(batch, meta)
+		} else {
+			batches[meta.Source] = []AnimMeta{meta}
+		}
+	}
+	result := map[AnimationMode]Animation{}
+	for sheetID, metas := range batches {
+		// RFE: Is it worthwhile to use sync map writing to parallelize this?
+		sheet, err := source.GetSpriteSheet(sheetID)
+		if err != nil {
+			return nil, err
+		}
+		for _, meta := range metas {
+			anim, err := sheet.ExtractAnimation(meta)
+			if err != nil {
+				return nil, err
+			}
+			result[meta.Mode] = anim
+		}
 	}
 	return result, nil
 }
