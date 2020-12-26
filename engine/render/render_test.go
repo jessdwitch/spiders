@@ -35,7 +35,6 @@ func TestExtractAnimation(t *testing.T) {
 	assert.Equal(t, meta.FrameDelay, anim.FrameDelayMax)
 	assert.Len(t, anim.Frames, meta.NFrames)
 	assert.NotContains(t, anim.Frames, nil)
-	assert.Equal(t, image.Pt(51, 54), anim.GetDims())
 	assert.Equal(t, render.Point{0, 0}, anim.GetPosition())
 }
 

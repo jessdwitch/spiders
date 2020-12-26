@@ -3,7 +3,6 @@ package render
 import (
 	"encoding/csv"
 	"fmt"
-	"image"
 	"math"
 
 	"github.com/hajimehoshi/ebiten/v2"
@@ -55,7 +54,10 @@ type (
 	}
 	// Animator : Triggers a registered animation. Returns the number of frames in a loop
 	Animator interface {
+		// Animate : Trigger a new animation. Returns the number of ticks per cycle
 		Animate(AnimationMode) (int, error)
+		// SetDelay : Adjust the frame delay. Returns the new number of ticks per cycle
+		SetDelay(int) (int, error)
 	}
 	// Drawer : Able to hook into the game engine's animation loop
 	Drawer interface {
@@ -81,24 +83,21 @@ type (
 	// Tile : Static drawable
 	Tile struct {
 		// image : the thing to render
-		image *ebiten.Image
-		// position : the top-left of where this should render
+		*ebiten.GeoM
+		image    *ebiten.Image
 		position Point
-		// dims : how big should this render?
-		dims image.Point
 	}
-	// Transformer : A handle for modifying scale, location, and rotation
+	// Transformer : A handle for modifying scale, location, and rotation. Can be used as a wrapper for ebiten.GeoM
 	Transformer interface {
 		// Scale : Rescale the transform to the given dimensions
-		Scale(Point) error
+		Scale(x, y float64)
 		// Translate : Move the transform to a new position
-		Translate(Point) error
+		Translate(x, y float64)
 		// Skew : Like rotation, but not!
 		// Skew() error // TODO:
 		// Rotate : Rotate the transform about the center
 		// Rotate() error // TODO: Units? Degrees or radians?
-		// GetDims : Get the current post-scale dimensions
-		GetDims() image.Point
+
 		// GetPosition : Get the current top-left pixel of the transform
 		GetPosition() Point
 	}
@@ -128,9 +127,13 @@ func NewSpriteFactoryFromManifests(sheetManifest, spriteManifest *csv.Reader) (*
 	return NewSpriteFactory(sheetManager, spriteMetaManager)
 }
 
-// NewTile : Make a new fixed image renderable
-func NewTile(i *ebiten.Image) Tile {
-	return Tile{image: i}
+// NewTile : Make a new fixed image renderable. Optionally, takes exactly 2 position args (x,y)
+func NewTile(i *ebiten.Image, position ...float64) Tile {
+	var p Point
+	if len(position) == 2 {
+		p = Point{position[0], position[1]}
+	}
+	return Tile{GeoM: &ebiten.GeoM{}, image: i, position: p}
 }
 
 // Update : Hook for the engine's tick function
@@ -159,8 +162,21 @@ func (b *BasicSprite) Animate(mode AnimationMode) (int, error) {
 	}
 	anim.CurrentFrame = 0
 	anim.FrameDelay = anim.FrameDelayMax
+	if b.Animation != nil && b.Tile != nil {
+		anim.GeoM = b.GeoM
+	}
 	b.Animation = &anim
 	return len(anim.Frames) * anim.FrameDelay, nil
+}
+
+// SetDelay : Adjust the frame delay, and resets the animation cycle. Returns the new number of ticks per cycle.
+func (b *BasicSprite) SetDelay(newDelay int) (int, error) {
+	if newDelay < 0 {
+		return -1, fmt.Errorf("frame delay must be non-negative")
+	}
+	b.FrameDelayMax = newDelay
+	b.CurrentFrame = 0
+	return len(b.Frames) * b.FrameDelayMax, nil
 }
 
 // Dist : The distance to the other Point.
@@ -185,43 +201,13 @@ func (p *Point) Lerp(Point, int) func() error {
 
 // Draw : Engine Draw hook
 func (t *Tile) Draw(screen *ebiten.Image) {
-	op := &ebiten.DrawImageOptions{}
-	// TODO: figure out rescaling
-	op.GeoM.Translate(t.position.X, t.position.Y)
+	op := &ebiten.DrawImageOptions{GeoM: *t.GeoM}
 	screen.DrawImage(t.image, op)
 }
 
 // Update : Engine Update hook
 func (t *Tile) Update() error { return nil }
 
-// Scale : Rescale the transform to the given dimensions
-func (t *Tile) Scale(_ Point) error {
-	panic("not implemented") // TODO: Implement
-}
-
-// Translate : Move the transform to a new position
-func (t *Tile) Translate(_ Point) error {
-	panic("not implemented") // TODO: Implement
-}
-
-// Skew : Like rotation, but not!
-// TODO:
-func (t *Tile) Skew() error {
-	panic("not implemented") // TODO: Implement
-}
-
-// Rotate : Rotate the transform about the center
-// TODO: Units? Degrees or radians?
-func (t *Tile) Rotate() error {
-	panic("not implemented") // TODO: Implement
-}
-
-// GetDims : Get the current post-scale dimensions
-func (t *Tile) GetDims() image.Point {
-	return t.dims
-}
-
-// GetPosition : Get the current top-left pixel of the transform
 func (t *Tile) GetPosition() Point {
 	return t.position
 }
@@ -236,11 +222,10 @@ func (s *SpriteFactory) GetSprite(id SpriteID) (Sprite, error) {
 	if err != nil {
 		return nil, err
 	}
+	t := NewTile(nil)
 	result := &BasicSprite{
 		Animation: &Animation{
-			Tile: &Tile{
-				position: Point{0, 0},
-			},
+			Tile: &t,
 		},
 		registeredAnimations: anims,
 	}

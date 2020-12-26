@@ -122,8 +122,9 @@ func (s SpriteSheetFiles) GetSpriteSheet(id SourceImageID) (*SpriteSheet, error)
 
 // ExtractAnimation : Extract a series of frames from this Sprite Sheet
 func (s *SpriteSheet) ExtractAnimation(meta AnimMeta) (Animation, error) {
+	t := NewTile(nil)
 	result := Animation{
-		Tile:          &Tile{dims: s.TileDim},
+		Tile:          &t,
 		Frames:        []*ebiten.Image{},
 		FrameDelayMax: meta.FrameDelay,
 	}
