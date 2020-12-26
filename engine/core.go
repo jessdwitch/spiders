@@ -41,19 +41,20 @@ func NewGame(initScene Scene) (*Game, error) {
 
 func NewGameState(initScene Scene) *GameState {
 	return &GameState{
+		Config:       Config{ScreenHeight: 480, ScreenWidth: 640},
 		SceneManager: NewSceneManager(initScene),
 		Input:        NewInput(),
 	}
 }
 
 func (g *Game) Update() error {
-	return nil // TODO
+	return g.GameState.SceneManager.Update(g.GameState)
 }
 
-func (g *Game) Draw(*ebiten.Image) {
-	// TODO
+func (g *Game) Draw(screen *ebiten.Image) {
+	g.GameState.SceneManager.Draw(screen)
 }
 
-func (g *Game) Layout(outisdeWidth, outsideHeight int) (screenWidth, screenHeight int) {
-	return 0, 0 // TODO
+func (g *Game) Layout(outsideWidth, outsideHeight int) (screenWidth, screenHeight int) {
+	return outsideWidth, outsideHeight
 }

@@ -45,7 +45,7 @@ func NewSpriteMetaManager(manifest *csv.Reader) (SpriteMetaManager, error) {
 }
 
 func (s SpriteMetaManager) processManifestCsvRecord(record []string) error {
-	// record: name, sheet, mode, start, nFrames, dimX, dimY
+	// record: name, sheet, mode, start, nFrames, dimX, dimY, delay
 	var err error
 	meta, ok := s[SpriteID(record[0])]
 	if !ok {
@@ -66,11 +66,19 @@ func (s SpriteMetaManager) processManifestCsvRecord(record []string) error {
 		return err
 	}
 	nFrames, err := strconv.Atoi(record[4])
+	if err != nil {
+		return err
+	}
+	delay, err := strconv.Atoi(record[7])
+	if err != nil {
+		return err
+	}
 	anim := AnimMeta{
-		Mode:    AnimationMode(record[2]),
-		Source:  SourceImageID(record[1]),
-		Start:   start,
-		NFrames: nFrames,
+		Mode:       AnimationMode(record[2]),
+		Source:     SourceImageID(record[1]),
+		Start:      start,
+		NFrames:    nFrames,
+		FrameDelay: delay,
 	}
 	meta.Anims = append(meta.Anims, anim)
 	s[SpriteID(record[0])] = meta

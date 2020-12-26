@@ -60,9 +60,9 @@ func (p *pawn) resolveStatuses(b *BattleScene) error {
 	return nil
 }
 
-func (p *pawns) resolveStatuses(b *BattleScene) error {
+func (p pawns) resolveStatuses(b *BattleScene) error {
 	var err error
-	for _, pawn := range *p {
+	for _, pawn := range p {
 		if err = pawn.resolveStatuses(b); err != nil {
 			return err
 		}
@@ -70,9 +70,9 @@ func (p *pawns) resolveStatuses(b *BattleScene) error {
 	return nil
 }
 
-func (p *pawns) update() error {
+func (p pawns) update() error {
 	var err error
-	for _, pawn := range *p {
+	for _, pawn := range p {
 		if err = pawn.sprite.Update(); err != nil {
 			return err
 		}
@@ -81,22 +81,19 @@ func (p *pawns) update() error {
 }
 
 // arrange : sets the locations for each of the pawns equidistant on a given line
-func (p *pawns) arrange(start, end render.Point) {
+func (p pawns) arrange(start, end render.Point) {
 	// TODO: Rotate the sprite to match the angle of the line or compute the across of the sprite at that angle
-	var totalPawnWidth float64
-	for _, pawn := range *p {
-		totalPawnWidth += pawn.sprite.GetDims().X
-	}
-	spacer := (start.Dist(end) - totalPawnWidth) / float64(len(*p)+1)
-	for _, pawn := range *p {
+	totalPawnWidth := len(p) * 128
+	spacer := (start.Dist(end) - float64(totalPawnWidth)) / float64(len(p)+1)
+	for _, pawn := range p {
 		start = start.AddVec(spacer, end)
-		pawn.sprite.Translate(start)
-		start = start.AddVec(pawn.sprite.GetDims().X, end)
+		pawn.sprite.Translate(start.X, start.Y)
+		start = start.AddVec(128, end)
 	}
 }
 
-func (p *pawns) draw(screen *ebiten.Image) {
-	for _, pawn := range *p {
+func (p pawns) draw(screen *ebiten.Image) {
+	for _, pawn := range p {
 		pawn.sprite.Draw(screen)
 	}
 }

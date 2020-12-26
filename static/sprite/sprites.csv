@@ -1,3 +1,5 @@
-name,sheet,mode,start,nFrames,dimX,dimY
-slime1,slimes1,idle,0,8,51,54
-test,battlePC,idle,0,1,none,""
+name,sheet,mode,start,nFrames,dimX,dimY,delay
+slime_blue,slimes_blue,idle,0,4,32,32,5
+slime_green,slimes_green,idle,0,4,32,32,5
+slime_red,slimes_red,idle,0,4,32,32,5
+slime_white,slimes_white,idle,0,4,32,32,5

@@ -18,7 +18,7 @@ const (
 func main() {
 	ebiten.SetWindowSize(screenWidth, screenHeight)
 	ebiten.SetWindowTitle("Tacocat")
-	if err := ebiten.RunGame(demo.BattleDemo()); err != nil {
+	if err := ebiten.RunGame(demo.RenderDemo()); err != nil {
 		log.Fatal(err)
 	}
 }

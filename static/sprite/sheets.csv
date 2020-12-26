@@ -1,2 +1,5 @@
 name,path,tileX,tileY,sheetX,sheetY
-slimes1,static/img/slimes1.png,51,54,0,0
+slimes_blue,static/img/slime_blue_packed.png,17,13,68,52
+slimes_green,static/img/slime_green.png,32,32,128,128
+slimes_red,static/img/slime_red.png,32,32,128,128
+slimes_white,static/img/slime_white.png,32,32,128,128

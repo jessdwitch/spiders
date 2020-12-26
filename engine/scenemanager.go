@@ -2,11 +2,13 @@
 
 package engine
 
-import "github.com/hajimehoshi/ebiten/v2"
+import (
+	"github.com/hajimehoshi/ebiten/v2"
+)
 
 var (
-	transitionFrom = ebiten.NewImage(640, 480) //(ScreenWidth, ScreenHeight)
-	transitionTo   = ebiten.NewImage(640, 480) //(ScreenWidth, ScreenHeight)
+	transitionFrom = ebiten.NewImage(1280, 960) //(ScreenWidth, ScreenHeight)
+	transitionTo   = ebiten.NewImage(1280, 960) //(ScreenWidth, ScreenHeight)
 )
 
 const transitionMaxCount = 20
@@ -24,17 +26,16 @@ type (
 )
 
 func NewSceneManager(initialScene Scene) *SceneManager {
-	s := &SceneManager{}
+	s := &SceneManager{
+		current: initialScene,
+	}
 	return s
 }
 
 // Update : Call the current Scene's Update, or do nothing if in transition
-func (s *SceneManager) Update(input *Input) error {
+func (s *SceneManager) Update(state *GameState) error {
 	if s.transitionCount == 0 {
-		return s.current.Update(&GameState{
-			SceneManager: s,
-			Input:        input,
-		})
+		return s.current.Update(state)
 	}
 
 	s.transitionCount--
