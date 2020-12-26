@@ -3,6 +3,7 @@ package render
 import (
 	"encoding/csv"
 	"fmt"
+	"image"
 	"math"
 
 	"github.com/hajimehoshi/ebiten/v2"
@@ -14,7 +15,7 @@ type (
 	// Animation : a sequence of frames for a sprite to draw. Resist direct member updates; they're
 	// exported for serializer.
 	Animation struct {
-		Tile
+		*Tile
 		// Frames : The sequence of images in this animation
 		Frames []*ebiten.Image
 		// CurrentFrame : which frame in the sequence are we on?
@@ -28,14 +29,15 @@ type (
 	AnimationMode string
 	// AnimMeta : Animation metadata for retrieval
 	AnimMeta struct {
-		Mode    AnimationMode
-		Source  SourceImageID
-		Start   int
-		NFrames int
+		Mode       AnimationMode
+		Source     SourceImageID
+		Start      int
+		NFrames    int
+		FrameDelay int
 	}
 	// BasicSprite : A collection of ready-to-render animations
 	BasicSprite struct {
-		Animation
+		*Animation
 		// registeredAnimations : animations available to this sprite
 		registeredAnimations map[AnimationMode]Animation
 	}
@@ -48,8 +50,8 @@ type (
 	SpriteID string
 	// SpriteFactory : A simple pipe from SpriteMetaGetter to AnimationGetter to assmeble a Sprite
 	SpriteFactory struct {
-		sourceImageGetter  SpriteSheetGetter
-		spriteMetaGetter SpriteMetaGetter
+		sourceImageGetter SpriteSheetGetter
+		spriteMetaGetter  SpriteMetaGetter
 	}
 	// Animator : Triggers a registered animation. Returns the number of frames in a loop
 	Animator interface {
@@ -83,7 +85,7 @@ type (
 		// position : the top-left of where this should render
 		position Point
 		// dims : how big should this render?
-		dims Point
+		dims image.Point
 	}
 	// Transformer : A handle for modifying scale, location, and rotation
 	Transformer interface {
@@ -96,7 +98,7 @@ type (
 		// Rotate : Rotate the transform about the center
 		// Rotate() error // TODO: Units? Degrees or radians?
 		// GetDims : Get the current post-scale dimensions
-		GetDims() Point
+		GetDims() image.Point
 		// GetPosition : Get the current top-left pixel of the transform
 		GetPosition() Point
 	}
@@ -108,8 +110,8 @@ const NoAnimation AnimationMode = "no_animation"
 // NewSpriteFactory : Create a new pipeline from SpriteID to Sprite
 func NewSpriteFactory(a SpriteSheetGetter, s SpriteMetaGetter) (*SpriteFactory, error) {
 	return &SpriteFactory{
-		sourceImageGetter:  a,
-		spriteMetaGetter: s,
+		sourceImageGetter: a,
+		spriteMetaGetter:  s,
 	}, nil
 }
 
@@ -157,7 +159,7 @@ func (b *BasicSprite) Animate(mode AnimationMode) (int, error) {
 	}
 	anim.CurrentFrame = 0
 	anim.FrameDelay = anim.FrameDelayMax
-	b.Animation = anim
+	b.Animation = &anim
 	return len(anim.Frames) * anim.FrameDelay, nil
 }
 
@@ -215,7 +217,7 @@ func (t *Tile) Rotate() error {
 }
 
 // GetDims : Get the current post-scale dimensions
-func (t *Tile) GetDims() Point {
+func (t *Tile) GetDims() image.Point {
 	return t.dims
 }
 
@@ -225,7 +227,7 @@ func (t *Tile) GetPosition() Point {
 }
 
 // GetSprite : Get a Sprite using the provided SpriteMetaGetter and AnimationGetter
-func (s *SpriteFactory) GetSprite(id SpriteID) (*BasicSprite, error) {
+func (s *SpriteFactory) GetSprite(id SpriteID) (Sprite, error) {
 	meta, err := s.spriteMetaGetter.GetSpriteMeta(id)
 	if err != nil {
 		return nil, err
@@ -235,8 +237,8 @@ func (s *SpriteFactory) GetSprite(id SpriteID) (*BasicSprite, error) {
 		return nil, err
 	}
 	result := &BasicSprite{
-		Animation: Animation{
-			Tile: Tile{
+		Animation: &Animation{
+			Tile: &Tile{
 				position: Point{0, 0},
 			},
 		},
@@ -251,9 +253,9 @@ func (s *SpriteFactory) GetAnimations(source SpriteSheetGetter, metas []AnimMeta
 	for _, meta := range metas {
 		if batch, ok := batches[meta.Source]; ok {
 			batch = append(batch, meta)
-		} else {
-			batches[meta.Source] = []AnimMeta{meta}
+			continue
 		}
+		batches[meta.Source] = []AnimMeta{meta}
 	}
 	result := map[AnimationMode]Animation{}
 	for sheetID, metas := range batches {

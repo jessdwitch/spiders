@@ -24,7 +24,7 @@ type (
 	SourceImageID string
 	// SpriteSheet : An image with sprite extraction details
 	SpriteSheet struct {
-		SourceImage ebiten.Image
+		SourceImage *ebiten.Image
 		SheetID     SourceImageID
 		SheetDim    image.Point
 		TileDim     image.Point
@@ -123,7 +123,9 @@ func (s SpriteSheetFiles) GetSpriteSheet(id SourceImageID) (*SpriteSheet, error)
 // ExtractAnimation : Extract a series of frames from this Sprite Sheet
 func (s *SpriteSheet) ExtractAnimation(meta AnimMeta) (Animation, error) {
 	result := Animation{
-		Frames: []*ebiten.Image{},
+		Tile:          &Tile{dims: s.TileDim},
+		Frames:        []*ebiten.Image{},
+		FrameDelayMax: meta.FrameDelay,
 	}
 	for i := 0; i < meta.NFrames; i++ {
 		r, err := s.iToRect(meta.Start + i)
@@ -157,7 +159,7 @@ func (s *sheetFileMeta) GetSpriteSheet(id SourceImageID) (*SpriteSheet, error) {
 	defer f.Close()
 	img, _, err := image.Decode(f)
 	return &SpriteSheet{
-		SourceImage: *ebiten.NewImageFromImage(img),
+		SourceImage: ebiten.NewImageFromImage(img),
 		SheetID:     id,
 		SheetDim:    s.sheetDim,
 		TileDim:     s.tileDim,
