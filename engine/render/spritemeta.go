@@ -79,5 +79,8 @@ func (s SpriteMetaManager) processManifestCsvRecord(record []string) error {
 
 // GetSpriteMeta : Get Sprite metadata from an ID
 func (s SpriteMetaManager) GetSpriteMeta(id SpriteID) (SpriteMeta, error) {
-	return s[id], nil
+	if meta, ok := s[id]; ok {
+		return meta, nil
+	}
+	return SpriteMeta{}, fmt.Errorf("id %s not found in sprite metas", id)
 }
