@@ -35,13 +35,13 @@ func BattleDemo() *engine.Game {
 	}
 	state.SceneManager.GoTo(scene)
 
-	sheetF, err := os.Open("../static/sprite/sheets.csv")
+	sheetF, err := os.Open("./content/sprite/sheets.csv")
 	if err != nil {
 		panic(err)
 	}
 	defer sheetF.Close()
 	sheetMani := csv.NewReader(sheetF)
-	spriteF, err := os.Open("../static/sprite/sprites.csv")
+	spriteF, err := os.Open("./content/sprite/sprites.csv")
 	if err != nil {
 		panic(err)
 	}

@@ -22,13 +22,13 @@ func RenderDemo() *engine.Game {
 	background := ebiten.NewImage(screenWidth, screenHeight)
 	background.Fill(color.Black)
 
-	sheetF, err := os.Open("C:\\Users\\jessp\\Documents\\repos\\spiders\\static\\sprite\\sheets.csv")
+	sheetF, err := os.Open("./content/sprite/sheets.csv")
 	if err != nil {
 		panic(err)
 	}
 	defer sheetF.Close()
 	sheetMani := csv.NewReader(sheetF)
-	spriteF, err := os.Open("C:\\Users\\jessp\\Documents\\repos\\spiders\\static\\sprite\\sprites.csv")
+	spriteF, err := os.Open("./content/sprite/sprites.csv")
 	if err != nil {
 		panic(err)
 	}
